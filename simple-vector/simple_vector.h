@@ -8,6 +8,8 @@
 
 #include <iostream>
 
+#include "array_ptr.h"
+
 class ReserveProxyObj {
 public:
     explicit ReserveProxyObj (size_t capacity_to_reserve) {
@@ -25,9 +27,12 @@ public:
     SimpleVector() noexcept = default;
 
     explicit SimpleVector(size_t size) 
-    : size_simple_vector_(size), capacity_simple_vector_(size) {
+    : simple_vector_(size), size_simple_vector_(size), capacity_simple_vector_(size) {
         if (size) {
-            simple_vector_ = new Type[size]{};
+            std::fill(begin(), end(), 0);
+            // ArrayPtr<Type>new_simple_vector(size);
+            // simple_vector_.swap(new_simple_vector);
+            // simple_vector_ = new ArrayPtr<Type>(size);
         }
     }
 
@@ -38,14 +43,19 @@ public:
     SimpleVector(size_t size, const Type& value)
     : size_simple_vector_(size), capacity_simple_vector_(size) {
         if (size) {
-            simple_vector_ = new Type[size]{};
+            ArrayPtr<Type>new_simple_vector(size);
+            simple_vector_.swap(new_simple_vector);
+            // simple_vector_ = new Type[size]{};
             std::fill(begin(), end(), value);
         }
     }
 
     SimpleVector(std::initializer_list<Type> init) 
      : size_simple_vector_(init.size()), capacity_simple_vector_(init.size()) {
-        simple_vector_ = new Type[init.size()]{};
+        // вынести эти две строчки в фукцию
+        ArrayPtr<Type>new_simple_vector(init.size());
+        simple_vector_.swap(new_simple_vector);
+        // simple_vector_ = new Type[init.size()]{};
         std::copy(init.begin(), init.end(), begin());
     }
 
@@ -53,15 +63,20 @@ public:
         if (this != &other) {
             capacity_simple_vector_ = other.capacity_simple_vector_;
             size_simple_vector_ = other.size_simple_vector_;
-            simple_vector_ = new Type[other.capacity_simple_vector_]{};
-            std::copy(other.begin(), other.end(), begin());
+            SimpleVector<Type> new_vector(size_simple_vector_);
+            // ArrayPtr<Type>new_simple_vector(size_simple_vector_);
+            // simple_vector_ = new Type[other.capacity_simple_vector_]{};
+            std::copy(other.begin(), other.end(), new_vector.begin());
+            simple_vector_.swap(new_vector.simple_vector_);
         }
     }
 
-    SimpleVector(SimpleVector&& other)
-    : simple_vector_(other.simple_vector_), size_simple_vector_(other.size_simple_vector_), \
-        capacity_simple_vector_(other.capacity_simple_vector_) {
-        other.simple_vector_ = nullptr;
+    SimpleVector(SimpleVector&& other) {
+        size_simple_vector_ = other.size_simple_vector_;
+        capacity_simple_vector_ = other.capacity_simple_vector_;
+        SimpleVector<Type> new_vector(size_simple_vector_);
+        std::move(other.begin(), other.end(), new_vector.begin());
+        simple_vector_.swap(new_vector.simple_vector_);
         other.size_simple_vector_ = 0;
     }
 
@@ -73,10 +88,10 @@ public:
         return *this;
 
     }
-
-    ~SimpleVector() {
-        delete[] simple_vector_;
-    }
+    // 
+    // ~SimpleVector() {
+    //     delete[] simple_vector_;
+    // }
 
     size_t GetSize() const noexcept {
         return size_simple_vector_;
@@ -91,10 +106,12 @@ public:
     }
 
     Type& operator[](size_t index) noexcept {
+        // assert(index < size_simple_vector_);
         return simple_vector_[index];
     }
 
     const Type& operator[](size_t index) const noexcept {
+        // assert(index < size_simple_vector_);
         return simple_vector_[index];
     }
 
@@ -117,107 +134,140 @@ public:
     }
 
     void Reserve(size_t new_capacity) {
-        if (capacity_simple_vector_ < new_capacity) {
-            Type *new_simple_vector = new Type[new_capacity]{};
-            if (capacity_simple_vector_ != 0) {
-                std::copy(begin(), end(), new_simple_vector);
-            }
-            delete[] simple_vector_;
-            simple_vector_ = new_simple_vector;
-            capacity_simple_vector_ = new_capacity;
+        if (new_capacity > capacity_simple_vector_) {
+            SimpleVector new_vector(new_capacity);
+            std::move(begin(), end(), new_vector.begin());
+            simple_vector_.swap(new_vector.simple_vector_);
+            std::exchange(capacity_simple_vector_, new_capacity);
         }
     }
 
     void Resize(size_t new_size) {
-        size_t counter = size_simple_vector_;
-        if (size_simple_vector_ > new_size) {
+
+        // size_t counter = size_simple_vector_;
+        // if (size_simple_vector_ > new_size) {
+        //     size_simple_vector_ = new_size;
+        // }
+        // if (capacity_simple_vector_ > new_size) {
+        //     Type check = {};
+        //     for ( ; counter < new_size; counter++) {
+        //         simple_vector_[counter] = std::move(check);
+        //     }
+        //     size_simple_vector_ = new_size;
+        // } else {
+        //     SimpleVector<Type> new_vector(new_size);
+        //     std::move(begin(), end(), new_vector.begin());
+        //     simple_vector_.swap(new_vector.simple_vector_);
+        //     capacity_simple_vector_ = new_size;
+        //     size_simple_vector_ = new_size;
+        // }
+
+        // полуработающая версия
+        if (new_size < size_simple_vector_) {
             size_simple_vector_ = new_size;
-        }
-        if (capacity_simple_vector_ > new_size) {
-            Type check = {};
-            for ( ; counter < new_size; counter++) {
-                simple_vector_[counter] = std::move(check);
-            }
-            size_simple_vector_ = new_size;
-        } else {
-            Type *new_simple_vector = new Type[new_size]{};
-            std::move(begin(), end(), new_simple_vector);
-            delete[] simple_vector_;
-            simple_vector_ = new_simple_vector;
-            size_simple_vector_ = new_size;
+        } else if (new_size > size_simple_vector_ && new_size < capacity_simple_vector_) {
+            std::fill(std::move(begin() + size_simple_vector_), std::move(begin() + new_size), 0);
+        } else if (new_size > capacity_simple_vector_) {
+            SimpleVector<Type> new_vector(new_size);
+            std::move(begin(), end(), new_vector.begin());
+            simple_vector_.swap(new_vector.simple_vector_);
             capacity_simple_vector_ = new_size;
+            size_simple_vector_ = new_size;
         }
+
+        // исходная версия
+        // size_t counter = size_simple_vector_;
+        // if (size_simple_vector_ > new_size) {
+        //     size_simple_vector_ = new_size;
+        // }
+        // if (capacity_simple_vector_ > new_size) {
+        //     Type check = {};
+        //     for ( ; counter < new_size; counter++) {
+        //         simple_vector_[counter] = std::move(check);
+        //     }
+        //     size_simple_vector_ = new_size;
+        // } else {
+        //     Type *new_simple_vector = new Type[new_size]{};
+        //     std::move(begin(), end(), new_simple_vector);
+        //     delete[] simple_vector_;
+        //     simple_vector_ = new_simple_vector;
+        //     size_simple_vector_ = new_size;
+        //     capacity_simple_vector_ = new_size;
+        // }
     }
 
     void PushBack(const Type& item) {
-        if (size_simple_vector_ >= capacity_simple_vector_) {
+        if (size_simple_vector_ >= capacity_simple_vector_ || capacity_simple_vector_ == 0) {
             size_t new_capacity_simple_vector_ = capacity_simple_vector_ == 0 ? 1 : capacity_simple_vector_ * 2;
-            Type *new_simple_vector = new Type[new_capacity_simple_vector_]{};
-            std::copy(begin(), end(), new_simple_vector);
-            delete[] simple_vector_;
-            simple_vector_ = new_simple_vector;
+            // ArrayPtr<Type> new_vector(capacity_simple_vector_);
+            size_t buf_size = size_simple_vector_;
+            this->Resize(new_capacity_simple_vector_);
+            size_simple_vector_ = buf_size;
+            // new_vector.swap(simple_vector_);
+            // simple_vector_.swap(new_vector);
+            // Type *new_simple_vector = new Type[new_capacity_simple_vector_]{};
+            // std::copy(begin(), end(), new_simple_vector);
+            // delete[] simple_vector_;
+            // simple_vector_ = new_simple_vector;
             capacity_simple_vector_ = new_capacity_simple_vector_;
         }
         simple_vector_[size_simple_vector_++] = item;
-
     }
 
     void PushBack(Type&& item) {
-        if (size_simple_vector_ >= capacity_simple_vector_) {
+        if (size_simple_vector_ >= capacity_simple_vector_ || capacity_simple_vector_ == 0) {
             size_t new_capacity_simple_vector_ = capacity_simple_vector_ == 0 ? 1 : capacity_simple_vector_ * 2;
-            Type *new_simple_vector = new Type[new_capacity_simple_vector_]{};
-            std::move(begin(), end(), new_simple_vector);
-            delete[] simple_vector_;
-            simple_vector_ = new_simple_vector;
+            // ArrayPtr<Type> new_vector(capacity_simple_vector_);
+            size_t buf_size = size_simple_vector_;
+            this->Resize(new_capacity_simple_vector_);
+            size_simple_vector_ = buf_size;
+            // new_vector.swap(simple_vector_);
+            // simple_vector_.swap(new_vector);
+            // Type *new_simple_vector = new Type[new_capacity_simple_vector_]{};
+            // std::copy(begin(), end(), new_simple_vector);
+            // delete[] simple_vector_;
+            // simple_vector_ = new_simple_vector;
             capacity_simple_vector_ = new_capacity_simple_vector_;
         }
+        // auto it = begin() + size_simple_vector_;
+        // *it = std::move(item);
+        // size_simple_vector_++;
         simple_vector_[size_simple_vector_++] = std::move(item);
     }
 
     Iterator Insert(ConstIterator pos, const Type& value) {
-
-        SimpleVector<Type>::Iterator no_const_pos = const_cast<Iterator>(pos);
-        int pos_element = std::distance(begin(), no_const_pos);
-        
-        if (size_simple_vector_ < capacity_simple_vector_) {
-            std::move_backward(no_const_pos, end(), &simple_vector_[(size_simple_vector_ + 1)]);
-            simple_vector_[pos_element] = std::move(value);
-        } else {
-            size_t new_capacity = std::max(size_t(1), 2 * capacity_simple_vector_);
-            Type *new_simple_vector = new Type[new_capacity]{};
-            std::move(simple_vector_, &simple_vector_[pos_element], new_simple_vector);
-            std::move_backward(no_const_pos, end(), &new_simple_vector[(size_simple_vector_ + 1)]);
-            new_simple_vector[pos_element] = std::move(value);
-            delete[] simple_vector_;
-            simple_vector_ = new_simple_vector;
-            capacity_simple_vector_ = new_capacity;
+        // assert(pos >= begin() && pos <= end());
+        auto distance = pos - cbegin();
+        auto buffer_for_size = size_simple_vector_;
+        if (size_simple_vector_ >= capacity_simple_vector_) {
+            capacity_simple_vector_ *= 2;
+            Resize(capacity_simple_vector_);
+            // SimpleVector<Type> new_vector(capacity_simple_vector_);
+            // std::copy(begin(), end(), new_vector.begin());
+            // simple_vector_.swap(new_vector.simple_vector_);
         }
-        
         ++size_simple_vector_;
-        return Iterator{&simple_vector_[pos_element]};
+        Iterator pos_for_insert = simple_vector_.Get() + distance;
+        std::copy_backward(pos_for_insert, simple_vector_.Get() + buffer_for_size, end());
+        *pos_for_insert = value;
+        return pos_for_insert;
     }
 
     Iterator Insert(ConstIterator pos, Type&& value) {
-
-        SimpleVector<Type>::Iterator no_const_pos = const_cast<Iterator>(pos);
-        int pos_element = std::distance(begin(), no_const_pos);
-        
-        if (size_simple_vector_ < capacity_simple_vector_) {
-            std::move_backward(no_const_pos, end(), &simple_vector_[(size_simple_vector_ + 1)]);
-            simple_vector_[pos_element] = std::move(value);
-        } else {
-            size_t new_capacity = std::max(size_t(1), 2 * capacity_simple_vector_);
-            Type *new_simple_vector = new Type[new_capacity]{};
-            std::move(simple_vector_, &simple_vector_[pos_element], new_simple_vector);
-            std::move_backward(no_const_pos, end(), &new_simple_vector[(size_simple_vector_ + 1)]);
-            new_simple_vector[pos_element] = std::move(value);
-            delete[] simple_vector_;
-            simple_vector_ = new_simple_vector;
-            capacity_simple_vector_ = new_capacity;
+        auto distance = pos - cbegin();
+        auto buffer_for_size = size_simple_vector_;
+        if (size_simple_vector_ >= capacity_simple_vector_) {
+            capacity_simple_vector_ *= 2;
+            Resize(capacity_simple_vector_);
+            // SimpleVector<Type> new_vector(capacity_simple_vector_);
+            // std::move(begin(), end(), new_vector.begin());
+            // simple_vector_.swap(new_vector.simple_vector_);
         }
-        
         ++size_simple_vector_;
-        return Iterator{&simple_vector_[pos_element]};
+        Iterator pos_for_insert = simple_vector_.Get() + distance;
+        std::move_backward(pos_for_insert, simple_vector_.Get() + buffer_for_size, end());
+        *pos_for_insert = std::move(value);
+        return pos_for_insert;
     }
 
     void PopBack() noexcept {
@@ -247,17 +297,22 @@ public:
     }
 
     void swap(SimpleVector& other) noexcept {
-        size_t size_buf_this = this->size_simple_vector_;
-        size_t capacity_buf_this = this->capacity_simple_vector_;
-        Type *buf_adress = this->simple_vector_;
+        simple_vector_.swap(other.simple_vector_);
+        std::swap(size_simple_vector_, other.size_simple_vector_);
+        std::swap(capacity_simple_vector_, other.capacity_simple_vector_);
 
-        this->size_simple_vector_ = other.size_simple_vector_;
-        this->capacity_simple_vector_ = other.capacity_simple_vector_;
-        this->simple_vector_ = other.simple_vector_;
 
-        other.size_simple_vector_ = size_buf_this;
-        other.capacity_simple_vector_ = capacity_buf_this;
-        other.simple_vector_ = buf_adress;
+        // size_t size_buf_this = this->size_simple_vector_;
+        // size_t capacity_buf_this = this->capacity_simple_vector_;
+        // Type *buf_adress = this->simple_vector_;
+
+        // this->size_simple_vector_ = other.size_simple_vector_;
+        // this->capacity_simple_vector_ = other.capacity_simple_vector_;
+        // this->simple_vector_ = other.simple_vector_;
+
+        // other.size_simple_vector_ = size_buf_this;
+        // other.capacity_simple_vector_ = capacity_buf_this;
+        // other.simple_vector_ = buf_adress;
     }
 
     Iterator begin() noexcept {
@@ -269,22 +324,24 @@ public:
     }
 
     ConstIterator begin() const noexcept {
-        return Iterator{&simple_vector_[0]};
+        return ConstIterator{&simple_vector_[0]};
     }
 
     ConstIterator end() const noexcept {
-        return Iterator{&simple_vector_[size_simple_vector_]};
+        return ConstIterator{&simple_vector_[size_simple_vector_]};
     }
 
     ConstIterator cbegin() const noexcept {
-        return Iterator{&simple_vector_[0]};
+        return ConstIterator{&simple_vector_[0]};
     }
 
     ConstIterator cend() const noexcept {
-        return Iterator{&simple_vector_[size_simple_vector_]};
+        return ConstIterator{&simple_vector_[size_simple_vector_]};
     }
 private:
-    Type *simple_vector_ = nullptr;
+    // Type *simple_vector_ = nullptr;
+    ArrayPtr<Type> simple_vector_;
+
     size_t size_simple_vector_ = 0;
     size_t capacity_simple_vector_ = 0;
 };
