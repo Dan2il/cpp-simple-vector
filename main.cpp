@@ -1,3 +1,6 @@
+// Copyright 2022
+// 18:19 07/06/2022
+
 #include <cassert>
 #include <iostream>
 #include <numeric>
@@ -7,7 +10,7 @@
 using namespace std;
 
 class X {
-public:
+ public:
     X()
         : X(5) {
     }
@@ -27,7 +30,7 @@ public:
         return x_;
     }
 
-private:
+ private:
     size_t x_;
 };
 
@@ -156,20 +159,7 @@ void TestNoncopiableErase() {
     for (size_t i = 0; i < size; ++i) {
         v.PushBack(X(i));
     }
-    // for (size_t i = 0; i < v.GetSize(); i++) {
-    //     std::cout << "i do = " << v[i].GetX() << std::endl;
-    // }
-
     auto it = v.Erase(v.begin());
-
-    // for (size_t i = 0; i < v.GetSize(); i++) {
-    //     std::cout << "i past = " << v[i].GetX() << std::endl;
-    // }
-    // if (it == nullptr) {
-    //     std::cout << "nullptr" << std::endl;
-    // } else {
-    //     std::cout << "it->GetX() = " << (it - 0)->GetX() << std::endl;
-    // }
     assert(it->GetX() == 1);
     cout << "Done!" << endl << endl;
 }
@@ -198,7 +188,6 @@ void TestReserveMethod() {
     // поместим 10 элементов в вектор
     for (int i = 0; i < 10; ++i) {
         v.PushBack(i);
-
     }
     assert(v.GetSize() == 10);
     // увеличим capacity до 100
@@ -278,9 +267,6 @@ inline void Test1() {
         SimpleVector<int> v(3);
         v[2] = 17;
         v.Resize(7);
-        // for (size_t i = 0; i < v.GetSize(); i++) {
-        //     std::cout << "v[i] = " << v[i] << std::endl;
-        // }
         assert(v.GetSize() == 7);
         assert(v.GetCapacity() >= v.GetSize());
         assert(v[2] == 17);
@@ -503,7 +489,7 @@ inline void Test2() {
         assert(q.GetCapacity() == 8);
         assert((q == SimpleVector<int>{42, 1, 2, 3, 13, 4, 5, 21}));
     }
-    {   
+    {
         SimpleVector<int> w{1, 2, 3, 4};
         // тест добавления в начало - недостаточно емкости
         auto return_check_begin = w.Insert(w.begin(), 42);
@@ -570,11 +556,11 @@ inline void Test2() {
 //         assert(check == b.end());
 //         assert((b == SimpleVector<int>{1, 2, 3}));
 //     }
-//     {
-//         SimpleVector<int> n{1, 2, 3, 4};
-//         n.Erase(n.end() - 2);
-//         assert((n == SimpleVector<int>{1, 2, 4}));
-//     }
+    {
+        SimpleVector<int> n{1, 2, 3, 4};
+        n.Erase(n.end() - 2);
+        assert((n == SimpleVector<int>{1, 2, 4}));
+    }
     {
         SimpleVector<int> m{1, 2, 3, 4};
         m.Erase(nullptr);
