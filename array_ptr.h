@@ -1,11 +1,12 @@
 // Copyright 2022
-// 18:19 07/06/2022
+// 23:42 08/06/2022
 
 #pragma once
 
 #include <algorithm>
 #include <cassert>
 #include <cstdlib>
+#include <utility>
 
 template <typename Type>
 class ArrayPtr {
@@ -24,16 +25,15 @@ class ArrayPtr {
 
     ArrayPtr(ArrayPtr&& raw_ptr) noexcept {
         if (this != raw_ptr) {
-            ArrayPtr<Type> new_array_ptr(raw_ptr.Get());
-            raw_ptr_ = new_array_ptr.Release();
+            raw_ptr_ = std::exchange(raw_ptr, nullptr);
         }
     }
 
     ArrayPtr& operator=(const ArrayPtr&& raw_ptr) {
         if (this != raw_ptr) {
-            ArrayPtr<Type> new_array_ptr(raw_ptr);
-            this->swap(new_array_ptr);
+            this->swap(raw_ptr);
         }
+        return *this;
     }
 
     ArrayPtr(const ArrayPtr&) = delete;
